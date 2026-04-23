@@ -1,0 +1,13 @@
+# @package _global_.model
+_target_: prowhiz.models.gnn.BindingGNN
+name: egnn
+input_node_dim: 39           # protein node feature dim (see featurizer.py)
+ligand_node_dim: 11          # ligand node feature dim
+edge_attr_dim: 4             # edge features: distance + 3 contact type dims
+hidden_dim: 128
+num_layers: 4
+dropout: 0.1
+update_coords: true          # EGNN coordinate update
+pool: sum_mean               # concatenate global_sum + global_mean
+head_hidden_dims: [128, 64]
+use_batch_norm: true

@@ -1,0 +1,6 @@
+# @package _global_.model
+_target_: prowhiz.models.baseline_mlp.BaselineMLP
+name: mlp_baseline
+input_dim: 10                # 10 contact-count features (PRODIGY-LIG C/N/O/X pairs)
+hidden_dims: [64, 32]
+dropout: 0.1

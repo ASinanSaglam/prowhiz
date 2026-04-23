@@ -1,0 +1,75 @@
+stages:
+  download_raw:
+    cmd: python scripts/download_pdbs.py --labels data/external/labels.csv --out data/raw/
+    deps:
+      - scripts/download_pdbs.py
+      - data/external/labels.csv
+    outs:
+      - data/raw/
+
+  featurize:
+    cmd: >
+      python scripts/prepare_dataset.py
+        --raw data/raw/
+        --labels data/external/labels.csv
+        --out data/processed/
+        --cutoff ${data.cutoff_angstrom}
+        --buffer ${data.contact_zone_buffer}
+    params:
+      - data.cutoff_angstrom
+      - data.contact_zone_buffer
+    deps:
+      - scripts/prepare_dataset.py
+      - src/prowhiz/data/
+      - data/raw/
+      - data/external/labels.csv
+    outs:
+      - data/processed/
+
+  split:
+    cmd: >
+      python scripts/create_splits.py
+        --processed data/processed/
+        --out data/splits/
+        --val-frac ${data.val_frac}
+        --test-frac ${data.test_frac}
+        --seed ${data.seed}
+    params:
+      - data.val_frac
+      - data.test_frac
+      - data.seed
+    deps:
+      - scripts/create_splits.py
+      - data/processed/
+    outs:
+      - data/splits/
+
+  train:
+    cmd: python scripts/train.py
+    params:
+      - training.lr
+      - training.batch_size
+      - training.max_epochs
+      - model.hidden_dim
+      - model.num_layers
+    deps:
+      - scripts/train.py
+      - src/prowhiz/
+      - data/processed/
+      - data/splits/
+    outs:
+      - outputs/checkpoints/best.pt:
+          cache: false
+    metrics:
+      - outputs/metrics/test_metrics.json:
+          cache: false
+
+  evaluate:
+    cmd: python scripts/evaluate.py --checkpoint outputs/checkpoints/best.pt --split data/splits/test.txt
+    deps:
+      - scripts/evaluate.py
+      - outputs/checkpoints/best.pt
+      - data/splits/test.txt
+    metrics:
+      - outputs/metrics/test_metrics.json:
+          cache: false

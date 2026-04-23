@@ -1,0 +1,16 @@
+# @package _global_.training
+lr: 3.0e-4
+batch_size: 32
+max_epochs: 200
+weight_decay: 1.0e-5
+grad_clip: 1.0
+loss: combined               # huber | mse | combined
+huber_delta: 1.0
+combined_pearson_weight: 0.5 # weight for (1 - pearson_r) term in combined loss
+scheduler:
+  name: cosine               # cosine | step | plateau
+  warmup_epochs: 10
+  min_lr: 1.0e-6
+patience: 30                 # early stopping patience (epochs)
+checkpoint_metric: val_pearson_r
+checkpoint_mode: max

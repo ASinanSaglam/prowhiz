@@ -1,0 +1,16 @@
+# Named experiment override — use with: python scripts/train.py +experiment=egnn_v1
+# @package _global_
+defaults:
+  - override /model: egnn
+  - override /training: default
+
+run_name: egnn_v1
+
+model:
+  hidden_dim: 128
+  num_layers: 4
+
+training:
+  lr: 5.0e-4
+  batch_size: 16
+  max_epochs: 300

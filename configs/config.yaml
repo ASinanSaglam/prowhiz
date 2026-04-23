@@ -1,0 +1,17 @@
+defaults:
+  - data: default
+  - model: egnn
+  - training: default
+  - _self_
+
+project_name: prowhiz
+run_name: ???          # must be set via CLI: run_name=my_experiment
+output_dir: outputs/
+resume_from: null      # path to a checkpoint to resume from, e.g. outputs/checkpoints/best.pt
+seed: 42
+device: cuda          # or cpu
+
+tracking:
+  backend: mlflow     # mlflow or wandb
+  mlflow_uri: sqlite:///mlflow.db
+  wandb_project: prowhiz
