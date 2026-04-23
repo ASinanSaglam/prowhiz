@@ -44,17 +44,24 @@ class BaselineMLP(nn.Module):
     def forward(self, data: Data | Batch) -> Tensor:
         """
         Args:
-            data: PyG Data or Batch. Must have `contact_counts` attribute of
-                shape (B, 15) or (1, 15) for a single graph.
+            data: PyG Data or Batch. Must have `contact_counts` (B, 10).
+                  Optionally has `ligand_global_feats` (B, G) which are
+                  concatenated when present.
 
         Returns:
             (B, 1) predicted dG values.
         """
         x: Tensor = data.contact_counts  # type: ignore[attr-defined]
-        # contact_counts is stored as (1, 15) per graph; after batching → (B, 15)
         if x.dim() == 1:
             x = x.unsqueeze(0)
-        # log1p compresses 0–50 range to 0–3.9 — required because raw counts
-        # (contacts-per-ligand-atom) are too large for standard LR settings.
         x = torch.log1p(x)
+
+        # Append ligand global features if the data carries them
+        if hasattr(data, "ligand_global_feats"):
+            g: Tensor = data.ligand_global_feats  # type: ignore[attr-defined]
+            if g.dim() == 1:
+                g = g.unsqueeze(0)
+            if g.shape[-1] > 0:
+                x = torch.cat([x, g], dim=-1)
+
         return self.net(x)

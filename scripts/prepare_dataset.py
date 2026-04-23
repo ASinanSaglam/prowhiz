@@ -63,17 +63,16 @@ def _selection_row(pdb_id: str, info: LigandSelectionInfo) -> dict[str, object]:
 
 
 def _process_one(
-    args: tuple[str, Path, Path, float, float, float, bool, int, str | None],
+    args: tuple[str, Path, Path, "FeaturizerConfig", float, float, bool, int, str | None],
 ) -> tuple[str, bool, str, dict[str, object] | None]:
     """Process a single CIF file.
 
     Returns:
         (pdb_id, success, error_msg, selection_row_or_None)
     """
-    pdb_id, cif_path, out_dir, cutoff, buffer, dg, query_rcsb, max_ligand_atoms, force_comp_id = args
+    pdb_id, cif_path, out_dir, feat_config, buffer, dg, query_rcsb, max_ligand_atoms, force_comp_id = args
     out_path = out_dir / f"{pdb_id}.pt"
     if out_path.exists():
-        # Load existing graph to recover selection info if available
         try:
             graph = torch.load(str(out_path), weights_only=False)
             sel_info = getattr(graph, "_selection_info", None)
@@ -92,16 +91,15 @@ def _process_one(
                 f"comp_id={struct.selection_info.selected.comp_id}",
                 None,
             )
-        contacts = compute_contacts(struct.protein_atoms, struct.ligand_atoms, cutoff=cutoff)
-        config = FeaturizerConfig(cutoff=cutoff)
+        contacts = compute_contacts(struct.protein_atoms, struct.ligand_atoms, cutoff=feat_config.cutoff)
         graph = build_graph(
             protein_atoms=struct.protein_atoms,
             ligand_atoms=struct.ligand_atoms,
             contacts=contacts,
             dg=dg,
             pdb_id=pdb_id,
-            config=config,
-            contact_zone_cutoff=cutoff,
+            config=feat_config,
+            contact_zone_cutoff=feat_config.cutoff,
             contact_zone_buffer=buffer,
         )
         torch.save(graph, str(out_path))
@@ -116,7 +114,10 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Featurize CIF files into PyG graphs")
     parser.add_argument("--raw", required=True, help="Directory of mmCIF files")
     parser.add_argument("--labels", required=True, help="CSV with pdb_id and dG_kcal_mol columns")
-    parser.add_argument("--out", required=True, help="Output directory for .pt files")
+    parser.add_argument(
+        "--out",
+        help="Output directory for .pt files. Defaults to data/processed/<version>/",
+    )
     parser.add_argument("--cutoff", type=float, default=10.5, help="Contact cutoff (Å)")
     parser.add_argument("--buffer", type=float, default=2.0, help="Contact zone buffer (Å)")
     parser.add_argument("--workers", type=int, default=4, help="Number of parallel workers")
@@ -132,11 +133,29 @@ def main() -> None:
         help="Skip structures whose ligand has more than this many heavy atoms (default 100). "
              "Filters out peptidic/macrocyclic outliers that PRODIGY-LIG features cannot model.",
     )
+    # Feature flags — each adds features to the graph and changes the version string
+    parser.add_argument(
+        "--feat-aromaticity",
+        action="store_true",
+        help="Add is_aromatic flag to ligand nodes (+1 dim). Requires RCSB CCD queries.",
+    )
+    parser.add_argument(
+        "--feat-hbd-hba",
+        action="store_true",
+        help="Add is_hbd and is_hba flags to ligand nodes (+2 dims).",
+    )
     args = parser.parse_args()
 
+    feat_config = FeaturizerConfig(
+        cutoff=args.cutoff,
+        use_aromaticity=args.feat_aromaticity,
+        use_hbd_hba=args.feat_hbd_hba,
+    )
+
     raw_dir = Path(args.raw)
-    out_dir = Path(args.out)
+    out_dir = Path(args.out) if args.out else Path("data/processed") / feat_config.version
     out_dir.mkdir(parents=True, exist_ok=True)
+    logger.info("Featurizer version: %s → output: %s", feat_config.version, out_dir)
     query_rcsb = not args.no_rcsb_query
 
     df = pd.read_csv(args.labels)
@@ -160,7 +179,7 @@ def main() -> None:
         if not cif_path.exists():
             logger.warning("CIF not found for %s, skipping", pdb_id)
             continue
-        task_args.append((pdb_id, cif_path, out_dir, args.cutoff, args.buffer, dg, query_rcsb, args.max_ligand_atoms, force_comp_id))
+        task_args.append((pdb_id, cif_path, out_dir, feat_config, args.buffer, dg, query_rcsb, args.max_ligand_atoms, force_comp_id))
 
     logger.info("Processing %d structures with %d workers", len(task_args), args.workers)
 

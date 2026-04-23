@@ -30,6 +30,7 @@ if not files:
 counts, ys, pdb_ids = [], [], []
 shape_errors: list[str] = []
 stale_files: list[str] = []
+feat_versions: set[str] = set()
 
 for f in files:
     d = torch.load(f, weights_only=False)
@@ -43,6 +44,7 @@ for f in files:
     counts.append(c)
     ys.append(d.y.item())
     pdb_ids.append(getattr(d, "pdb_id", f.split("/")[-1].replace(".pt", "")))
+    feat_versions.add(getattr(d, "featurizer_version", "pre-versioning"))
 
 if stale_files:
     print(f"[WARN] {len(stale_files)} stale .pt files skipped (wrong format — need to regenerate):")
@@ -59,6 +61,12 @@ if shape_errors:
 
 counts = np.array(counts, dtype=np.float32)
 ys = np.array(ys, dtype=np.float64)
+
+if len(feat_versions) > 1:
+    print(f"[WARN] Mixed featurizer versions in this directory: {feat_versions}")
+    print("  → Regenerate from a single version to avoid comparing different feature sets")
+else:
+    print(f"Featurizer version: {next(iter(feat_versions), 'unknown')}")
 
 print(f"\nLoaded {len(ys)} structures")
 print(f"dG range: {ys.min():.2f} to {ys.max():.2f} kcal/mol  (mean={ys.mean():.2f}, std={ys.std():.2f})")

@@ -94,8 +94,10 @@ class Trainer:
         patience: int = 30,
         checkpoint_dir: str | Path = "outputs/checkpoints",
         tracker: Any = None,
+        featurizer_config: dict[str, Any] | None = None,
     ) -> None:
         self.model = model.to(device)
+        self.featurizer_config = featurizer_config or {}
         self.loss_fn = loss_fn.to(device)
         self.train_loader = train_loader
         self.val_loader = val_loader
