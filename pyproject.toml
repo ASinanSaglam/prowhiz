@@ -46,9 +46,9 @@ dev = [
 wandb = ["wandb>=0.17"]
 
 [project.scripts]
-prowhiz-train   = "scripts.train:main"
-prowhiz-predict = "scripts.predict:main"
-prowhiz-eval    = "scripts.evaluate:main"
+prowhiz-train   = "prowhiz.cli.train:main"
+prowhiz-predict = "prowhiz.cli.predict:main"
+prowhiz-eval    = "prowhiz.cli.evaluate:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/prowhiz"]

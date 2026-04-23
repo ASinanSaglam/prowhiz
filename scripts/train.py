@@ -175,6 +175,15 @@ def main(cfg: DictConfig) -> None:
     })
 
     # Train
+    featurizer_config = {
+        "featurizer_version": data_dims["featurizer_version"],
+        "protein_node_dim": int(data_dims["protein_node_dim"]),
+        "ligand_node_dim": int(data_dims["ligand_node_dim"]),
+        "mlp_input_dim": int(data_dims["mlp_input_dim"]),
+        "cutoff": float(cfg.data.get("cutoff", 10.5)),
+        "use_aromaticity": "arom" in str(data_dims["featurizer_version"]),
+        "use_hbd_hba": "hbd" in str(data_dims["featurizer_version"]),
+    }
     trainer = Trainer(
         model=model,
         loss_fn=loss_fn,
@@ -189,6 +198,7 @@ def main(cfg: DictConfig) -> None:
         patience=cfg.training.patience,
         checkpoint_dir=Path(cfg.output_dir) / "checkpoints",
         tracker=tracker,
+        featurizer_config=featurizer_config,
     )
 
     resume_path = cfg.get("resume_from", None)

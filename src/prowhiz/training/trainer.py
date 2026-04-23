@@ -265,6 +265,7 @@ class Trainer:
             "scheduler_state_dict": self.scheduler.state_dict(),
             "val_pearson_r": self.best_val_r,
             "stopper_counter": self.early_stopper.counter,
+            "featurizer_config": self.featurizer_config,
         }
         path = self.checkpoint_dir / "best.pt"
         torch.save(ckpt, str(path))
