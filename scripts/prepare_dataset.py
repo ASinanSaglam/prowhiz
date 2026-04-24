@@ -63,14 +63,14 @@ def _selection_row(pdb_id: str, info: LigandSelectionInfo) -> dict[str, object]:
 
 
 def _process_one(
-    args: tuple[str, Path, Path, "FeaturizerConfig", float, float, bool, int, str | None],
+    args: tuple[str, Path, Path, "FeaturizerConfig", float, float, bool, int, str | None, bool],
 ) -> tuple[str, bool, str, dict[str, object] | None]:
     """Process a single CIF file.
 
     Returns:
         (pdb_id, success, error_msg, selection_row_or_None)
     """
-    pdb_id, cif_path, out_dir, feat_config, buffer, dg, query_rcsb, max_ligand_atoms, force_comp_id = args
+    pdb_id, cif_path, out_dir, feat_config, buffer, dg, query_rcsb, max_ligand_atoms, force_comp_id, only_unambiguous = args
     out_path = out_dir / f"{pdb_id}.pt"
     if out_path.exists():
         try:
@@ -82,6 +82,17 @@ def _process_one(
 
     try:
         struct = parse_cif(cif_path, pdb_id=pdb_id, query_rcsb=query_rcsb, force_comp_id=force_comp_id)
+        n_candidates = len(struct.selection_info.all_candidates)
+        if only_unambiguous and n_candidates > 1:
+            return (
+                pdb_id,
+                False,
+                f"ambiguous ligand: {n_candidates} candidates — use --only-unambiguous=false or provide force_comp_id",
+                None,
+            )
+        contacts = compute_contacts(struct.protein_atoms, struct.ligand_atoms, cutoff=feat_config.cutoff)
+        if contacts.contact_counts.sum() == 0:
+            return pdb_id, False, "zero protein-ligand contacts after filtering", None
         n_lig_heavy = len(struct.ligand_atoms)
         if n_lig_heavy > max_ligand_atoms and force_comp_id is None:
             return (
@@ -91,7 +102,6 @@ def _process_one(
                 f"comp_id={struct.selection_info.selected.comp_id}",
                 None,
             )
-        contacts = compute_contacts(struct.protein_atoms, struct.ligand_atoms, cutoff=feat_config.cutoff)
         graph = build_graph(
             protein_atoms=struct.protein_atoms,
             ligand_atoms=struct.ligand_atoms,
@@ -144,12 +154,27 @@ def main() -> None:
         action="store_true",
         help="Add is_hbd and is_hba flags to ligand nodes (+2 dims).",
     )
+    parser.add_argument(
+        "--feat-angles",
+        action="store_true",
+        help="Add per-contact angle features to edge attributes (+2 dims): "
+             "cosine of angle at protein atom (CA→atom→ligand) and "
+             "cosine of angle at ligand atom (protein→ligand→bonded-neighbor). "
+             "Captures H-bond and side-chain orientation geometry.",
+    )
+    parser.add_argument(
+        "--only-unambiguous",
+        action="store_true",
+        help="Skip structures where more than one ligand candidate survives filtering. "
+             "Use this when ligand identity must be unambiguous (e.g. LP-PDBBind).",
+    )
     args = parser.parse_args()
 
     feat_config = FeaturizerConfig(
         cutoff=args.cutoff,
         use_aromaticity=args.feat_aromaticity,
         use_hbd_hba=args.feat_hbd_hba,
+        use_angle_features=args.feat_angles,
     )
 
     raw_dir = Path(args.raw)
@@ -179,7 +204,7 @@ def main() -> None:
         if not cif_path.exists():
             logger.warning("CIF not found for %s, skipping", pdb_id)
             continue
-        task_args.append((pdb_id, cif_path, out_dir, feat_config, args.buffer, dg, query_rcsb, args.max_ligand_atoms, force_comp_id))
+        task_args.append((pdb_id, cif_path, out_dir, feat_config, args.buffer, dg, query_rcsb, args.max_ligand_atoms, force_comp_id, args.only_unambiguous))
 
     logger.info("Processing %d structures with %d workers", len(task_args), args.workers)
 

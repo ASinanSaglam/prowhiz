@@ -2,7 +2,7 @@
 
 Neural network for protein-ligand binding free energy (dG) prediction from crystal structures.
 
-Inspired by [PRODIGY-LIG](https://github.com/haddocking/prodigy-lig), ProWhiz is an exploratory project that aims to replace the linear contact-count model with a learned E(3)-equivariant graph neural network trained on protein-ligand crystal structures. The project will also replicate PRODIGY-LIG initially as a baseline to ensure accuracy so it can be compared correctly. 
+Inspired by [PRODIGY-LIG](https://github.com/haddocking/prodigy-lig), ProWhiz is an exploratory project that aims to replace the linear contact-count model with a learned E(3)-equivariant graph neural network trained on LP-PDBBind dataset. The project will also replicate PRODIGY-LIG initially as a baseline to ensure accuracy so it can be compared correctly. 
 
 ---
 
